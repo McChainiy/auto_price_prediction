@@ -1,4 +1,7 @@
 ССЫЛКА НА ПРИЛОЖЕНИЕ В СТРИМЛИТ: https://autopricepredictiongit-hse.streamlit.app
+(В качестве csv лучше загружать таблицу, которую мы скачивали изначально в ноутбуке:
+https://raw.githubusercontent.com/Murcha1990/MLDS_ML_2022/main/Hometasks/HT1/cars_test.csv
+Эта таблица есть в репозитории под названием test.csv
 
 <h1> Вывод
   
