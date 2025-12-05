@@ -298,7 +298,7 @@ class MyTransormer(BaseEstimator, TransformerMixin):
         return X
 
 st.set_page_config(
-    page_title="Churn Prediction",
+    page_title="Auto price prediction",
     page_icon="🎯",
     layout="wide",
     initial_sidebar_state="expanded"
