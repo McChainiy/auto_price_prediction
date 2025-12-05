@@ -17,6 +17,147 @@ import phik
 
 class MyTransormer(BaseEstimator, TransformerMixin):
     def __init__(self):
+        self.regex_pattern = r"[-+]?([0-9]*\.[0-9]+|\d+)"
+
+    def fit(self, X_real, y_real):
+        X = X_real.copy(deep=True)
+        y = y_real.copy(deep=True)
+        y = y[~X.duplicated(keep='first')]
+        X = X[~X.duplicated(keep='first')]
+        X = X.reset_index(drop=True)
+        y = y.reset_index(drop=True)
+        for col in ['mileage', 'engine', 'max_power']:
+            X[col]  = self.extract_number(X[col])
+        X['max_torque_rpm'] = X['torque'].apply(self.extract_rpm)
+        X['torque'] = X['torque'].apply(self.extract_torque)
+
+        self.cols_with_na = [i[0] for i in filter(lambda x: x[1] > 0, dict(X.isna().sum()).items())]
+        self.train_medians = {}
+        for col in self.cols_with_na:
+            self.train_medians[col] = X[col].median()
+            X[col] = X[col].fillna(self.train_medians[col])
+
+        X['engine'] = X['engine'].apply(int)
+        X['seats'] = X['seats'].apply(int)
+        X['name'] = X['name'].apply(lambda x: ' '.join(x.split()[:2]))
+        X['year'] = X['year'] ** 2
+        X['enigne_over_power'] = X['max_power'] / X['engine']
+        X['fuel_spent'] = X['km_driven'] / 100 * X['mileage']
+        X_y = pd.concat([X, pd.DataFrame(y, columns=['selling_price'])], axis=1)
+        self.means = X_y.groupby('name')['selling_price'].mean()
+        self.train_mean_y = np.mean(y)
+        X['model_avg_price']  = X['name'].map(self.means).fillna(self.train_mean_y)
+        X['country'] = X['name'].apply(lambda x: self.get_country(x))
+
+        self.cat_columns = ['fuel', 'seller_type', 'transmission', 'owner', 'country']
+        self.ohc_cols = {}
+        for col in self.cat_columns: 
+            ohc = OneHotEncoder(sparse_output=False, drop='first', handle_unknown='ignore')
+            ohc.fit(X[[col]])
+            self.ohc_cols[col] = ohc
+        self.raw_feature_names_ = X_real.columns.tolist()
+        self.cat_columns_unique = {i: X[i].unique() for i in ['name', 'fuel', 'seller_type', 'transmission', 'owner', 'seats']}
+        # self.num_columns = []
+        # print(X.columns)
+        return self
+
+    def transform(self, X_real):
+        X = X_real.copy(deep=True)
+        skip_idx = X[X.isna().sum(axis=1) > 0].index
+        X['skipped_flag'] = X.index.isin(skip_idx)
+        for col in ['mileage', 'engine', 'max_power']:
+            X[col]  = self.extract_number(X[col])
+        X['max_torque_rpm'] = X['torque'].apply(self.extract_rpm)
+        X['torque'] = X['torque'].apply(self.extract_torque)
+        for col in self.cols_with_na:
+            X[col] = X[col].fillna(self.train_medians[col])
+        X['engine'] = X['engine'].apply(int)
+        X['seats'] = X['seats'].apply(int)
+        X['name'] = X['name'].apply(lambda x: ' '.join(x.split()[:2]))
+        X['year'] = X['year'] ** 2
+        X['enigne_over_power'] = X['max_power'] / X['engine']
+        X['fuel_spent'] = X['km_driven'] / 100 * X['mileage']
+        X['model_avg_price']  = X['name'].map(self.means).fillna(self.train_mean_y)
+        X['country'] = X['name'].apply(lambda x: self.get_country(x))
+        X = self.add_ohe_features(X)
+        X = X.drop(columns=self.cat_columns)
+        X['log_km_driven'] = np.log1p(X['km_driven'])
+        X.drop(columns=['km_driven', 'name'], inplace=True)
+        self.feature_names_ = X.columns.tolist()
+        return X
+    
+    def extract_number(self, series):
+            return series.apply(
+                lambda x: float(re.findall(self.regex_pattern, str(x))[0]) if pd.notnull(x) and re.findall(self.regex_pattern, str(x)) else np.nan
+            )
+    def extract_rpm(self, x):
+        if pd.isna(x):
+            return np.nan
+        
+        match = re.findall(r"(@|at|/)\s*[^0-9]*(?:[0-9,.]+-)?([0-9,.]*)", str(x), re.IGNORECASE)
+        if not match:
+            return np.nan
+        match = float(str(match[0][1]).replace(',', ''))
+
+        return match
+
+    def extract_torque(self, x):
+        if pd.isna(x):
+            return np.nan
+        # регекс подобран методом проб и ошибок
+        match = re.findall(r"([-+]?(?:\d*\.\d+|\d+))[^a-zA-Z]*(kgm|nm)?", str(x), re.IGNORECASE)[0]
+        if not match:
+            return np.nan
+
+        unit = match[1].lower() if match[1] else None
+        number = float(match[0]) * (1 if unit != 'kgm' else 9.8)
+        return number
+
+    def get_country(self, name):
+        # P.S. воспользовался chatgpt для того, чтобы сформировать этот словарь
+        manufacturer_country = {
+        "Maruti": "India",
+        "Skoda": "Czech Republic",
+        "Hyundai": "South Korea",
+        "Toyota": "Japan",
+        "Ford": "USA",
+        "Renault": "France",
+        "Mahindra": "India",
+        "Honda": "Japan",
+        "Chevrolet": "USA",
+        "Fiat": "Italy",
+        "Datsun": "Japan",
+        "Tata": "India",
+        "Jeep": "USA",
+        "Mercedes-Benz": "Germany",
+        "Mitsubishi": "Japan",
+        "Audi": "Germany",
+        "Volkswagen": "Germany",
+        "BMW": "Germany",
+        "Nissan": "Japan",
+        "Lexus": "Japan",
+        "Jaguar": "United Kingdom",
+        "Land": "United Kingdom",
+        "MG": "United Kingdom",
+        "Volvo": "Sweden",
+        "Daewoo": "South Korea",
+        "Kia": "South Korea",
+        "Force": "India",
+        "Ambassador": "India",
+        "Isuzu": "Japan",
+        "Peugeot": "France",
+        "Opel": "Germany",
+        "Ashok": "India"
+    }
+        return manufacturer_country[name.split()[0]]
+    
+    def add_ohe_features(self, X):
+        for col in self.cat_columns:
+            ohc = self.ohc_cols[col]
+            X_encoded = ohc.transform(X[[col]])
+            X[ohc.get_feature_names_out([col])] = X_encoded
+        return X
+    def __init__(self):
         pass
         self.regex_pattern = r"[-+]?([0-9]*\.[0-9]+|\d+)" 
 
