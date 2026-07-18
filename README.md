@@ -1,5 +1,6 @@
 # CarValue - Used Car Price Prediction
 
+[![Live Demo](https://img.shields.io/badge/Live_demo-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://autopricepredictiongit-hse.streamlit.app)
 [![CI](https://github.com/McChainiy/auto_price_prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/McChainiy/auto_price_prediction/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7.1-F7931E?logo=scikitlearn&logoColor=white)
@@ -10,6 +11,8 @@
 Indian market:** from exploratory data analysis and feature engineering to a
 versioned `scikit-learn` pipeline, automated tests, and an interactive Streamlit
 application.
+
+### [Open the live demo →](https://autopricepredictiongit-hse.streamlit.app)
 
 > Prices and error metrics are reported in Indian rupees (INR).
 
