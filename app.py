@@ -23,23 +23,23 @@ SAMPLE_DATA_PATH = PROJECT_ROOT / "test.csv"
 TARGET_COLUMN = "selling_price"
 
 FEATURE_LABELS = {
-    "year": "Год выпуска²",
-    "mileage": "Экономичность",
-    "engine": "Объём двигателя",
-    "max_power": "Максимальная мощность",
-    "torque": "Крутящий момент",
-    "seats": "Количество мест",
-    "skipped_flag": "Были пропуски",
-    "max_torque_rpm": "Обороты максимального момента",
-    "enigne_over_power": "Мощность / объём двигателя",
-    "fuel_spent": "Расчётный расход топлива",
-    "model_avg_price": "Средняя цена модели",
-    "log_km_driven": "Логарифм пробега",
+    "year": "Year squared",
+    "mileage": "Fuel efficiency",
+    "engine": "Engine displacement",
+    "max_power": "Maximum power",
+    "torque": "Torque",
+    "seats": "Seat count",
+    "skipped_flag": "Had missing values",
+    "max_torque_rpm": "Peak torque RPM",
+    "enigne_over_power": "Power / engine displacement",
+    "fuel_spent": "Fuel-use proxy",
+    "model_avg_price": "Model average price",
+    "log_km_driven": "Log distance driven",
 }
 
 
 st.set_page_config(
-    page_title="CarValue · Оценка автомобиля",
+    page_title="CarValue · Used Car Valuation",
     page_icon="🚘",
     layout="wide",
     initial_sidebar_state="auto",
@@ -95,7 +95,7 @@ st.markdown(
 )
 
 
-@st.cache_resource(show_spinner="Загружаем модель…")
+@st.cache_resource(show_spinner="Loading model...")
 def get_model():
     return load_pipeline()
 
@@ -126,11 +126,11 @@ def feature_label(name: str) -> str:
     if name in FEATURE_LABELS:
         return FEATURE_LABELS[name]
     categorical_prefixes = {
-        "fuel_": "Топливо",
-        "seller_type_": "Продавец",
-        "transmission_": "Коробка передач",
-        "owner_": "Владелец",
-        "country_": "Страна бренда",
+        "fuel_": "Fuel",
+        "seller_type_": "Seller type",
+        "transmission_": "Transmission",
+        "owner_": "Ownership",
+        "country_": "Manufacturer country",
     }
     for prefix, label in categorical_prefixes.items():
         if name.startswith(prefix):
@@ -145,7 +145,7 @@ try:
     model_version = model_metadata["version"]
     feature_count = model_metadata["engineered_feature_count"]
 except Exception as error:
-    st.error("Не удалось проверить и загрузить модель или её метаданные.")
+    st.error("The model or its metadata could not be verified and loaded.")
     st.exception(error)
     st.stop()
 
@@ -153,28 +153,28 @@ transformer = model.named_steps["transformer"]
 
 with st.sidebar:
     st.markdown("### CarValue")
-    st.caption("Оценка стоимости подержанных автомобилей")
+    st.caption("Used-car price estimation")
     st.divider()
-    st.markdown("**Модель**")
+    st.markdown("**Model**")
     st.caption(f"Ridge Regression · v{model_version}")
-    st.caption(f"Признаков после обработки · {feature_count}")
-    st.caption("Целевая валюта · INR")
-    st.caption(f"Тестовый R² · {test_metrics['r2']:.3f}")
+    st.caption(f"Engineered features · {feature_count}")
+    st.caption("Target currency · INR")
+    st.caption(f"Holdout R² · {test_metrics['r2']:.3f}")
     st.divider()
     st.link_button(
-        "Открыть репозиторий ↗",
+        "Open repository ↗",
         "https://github.com/McChainiy/auto_price_prediction",
         width="stretch",
     )
-    st.caption("Демо предназначено для исследования модели, а не для финансовой оценки.")
+    st.caption("This demo is for model exploration, not financial valuation.")
 
 st.markdown(
     """
     <header class="app-header">
         <h1>CarValue</h1>
         <p>
-            Оценка стоимости подержанных автомобилей на индийском рынке с объяснением
-            факторов прогноза и поддержкой пакетной обработки.
+            Used-car price estimation for the Indian market, with prediction-factor
+            analysis and batch processing.
         </p>
     </header>
     """,
@@ -183,22 +183,22 @@ st.markdown(
 
 st.markdown(
     f"""
-    <section class="metric-grid" aria-label="Метрики модели">
+    <section class="metric-grid" aria-label="Model metrics">
         <div class="metric-item">
-            <div class="metric-label">R² на тесте</div>
+            <div class="metric-label">Holdout R²</div>
             <div class="metric-value">{test_metrics['r2']:.3f}</div>
-            <div class="metric-note">+0.287 к baseline</div>
+            <div class="metric-note">+0.287 vs. baseline</div>
         </div>
         <div class="metric-item">
             <div class="metric-label">MAE</div>
             <div class="metric-value">{format_price(test_metrics['mae'])}</div>
         </div>
         <div class="metric-item">
-            <div class="metric-label">Признаков после обработки</div>
+            <div class="metric-label">Engineered features</div>
             <div class="metric-value">{feature_count}</div>
         </div>
         <div class="metric-item">
-            <div class="metric-label">Holdout-выборка</div>
+            <div class="metric-label">Holdout samples</div>
             <div class="metric-value">{test_metrics['rows']:,}</div>
         </div>
     </section>
@@ -208,39 +208,39 @@ st.markdown(
 
 single_tab, batch_tab, analysis_tab, interpretation_tab, overview_tab = st.tabs(
     [
-        "Оценить автомобиль",
-        "Пакетный прогноз",
-        "Анализ данных",
-        "Интерпретация",
-        "О проекте",
+        "Estimate a car",
+        "Batch prediction",
+        "Data analysis",
+        "Interpretation",
+        "About",
     ]
 )
 
 with overview_tab:
-    st.subheader("От сырой строки объявления до прогноза")
+    st.subheader("From a raw listing to a price estimate")
     st.write(
-        "Модель принимает характеристики в том же виде, в котором они встречаются "
-        "в объявлениях, и воспроизводимо проводит всю обработку внутри одного "
+        "The model accepts vehicle attributes in the same format used by real "
+        "listings and applies every processing step reproducibly inside a single "
         "`scikit-learn Pipeline`."
     )
 
     cards = st.columns(4)
     card_content = [
         (
-            "01 · Парсинг",
-            "Регулярные выражения извлекают мощность, объём, расход, момент и RPM из смешанных строк.",
+            "01 · Parsing",
+            "Regular expressions extract power, displacement, mileage, torque, and RPM from mixed strings.",
         ),
         (
             "02 · Feature engineering",
-            "Полиномиальные, логарифмические и interaction-признаки раскрывают нелинейные зависимости.",
+            "Polynomial, logarithmic, and interaction features expose nonlinear relationships.",
         ),
         (
-            "03 · Кодирование",
-            "OHE с поддержкой неизвестных категорий и train-only mean target encoding модели авто.",
+            "03 · Encoding",
+            "OHE handles unseen categories, while model-level mean target encoding is learned on train only.",
         ),
         (
-            "04 · Оценка",
-            "StandardScaler и Ridge Regression дают устойчивый прогноз с контролем регуляризации.",
+            "04 · Estimation",
+            "StandardScaler and Ridge Regression provide stable estimates with controlled regularization.",
         ),
     ]
     for column, (title, description) in zip(cards, card_content):
@@ -250,19 +250,19 @@ with overview_tab:
             unsafe_allow_html=True,
         )
 
-    st.markdown("#### Что особенно интересно")
+    st.markdown("#### Engineering highlights")
     st.markdown(
         """
-        - Медианная импутация дополняется отдельным флагом пропуска.
-        - Для неизвестной модели автомобиля используется средняя цена train-выборки.
-        - Пробег логарифмируется, а год выпуска и взаимодействия признаков моделируют нелинейность.
-        - Интерфейс поддерживает одиночный прогноз, CSV-пакеты, диагностику качества и объяснение коэффициентов.
+        - Median imputation is paired with an explicit missing-value indicator.
+        - Unseen vehicle models fall back to the training-set target mean.
+        - Log distance, squared year, and interaction features model nonlinear effects.
+        - The UI supports single estimates, CSV batches, quality diagnostics, and coefficient analysis.
         """
     )
 
 with single_tab:
-    st.subheader("Параметры автомобиля")
-    st.caption("Диапазоны формы ориентированы на данные, на которых обучалась модель.")
+    st.subheader("Vehicle details")
+    st.caption("Input ranges reflect the data distribution used to train the model.")
 
     names = options_for(transformer, "name")
     fuels = options_for(transformer, "fuel")
@@ -275,38 +275,38 @@ with single_tab:
         left, right = st.columns(2)
         with left:
             name = st.selectbox(
-                "Марка и модель",
+                "Make and model",
                 names,
                 index=default_index(names, "Maruti Swift"),
             )
-            year = st.number_input("Год выпуска", 1994, 2020, 2017, 1)
-            km_driven = st.number_input("Пробег, км", 0, 1_500_000, 50_000, 5_000)
-            fuel = st.selectbox("Тип топлива", fuels, index=default_index(fuels, "Petrol"))
+            year = st.number_input("Model year", 1994, 2020, 2017, 1)
+            km_driven = st.number_input("Distance driven, km", 0, 1_500_000, 50_000, 5_000)
+            fuel = st.selectbox("Fuel type", fuels, index=default_index(fuels, "Petrol"))
             transmission = st.selectbox(
-                "Коробка передач",
+                "Transmission",
                 transmissions,
                 index=default_index(transmissions, "Manual"),
             )
             owner = st.selectbox(
-                "История владения",
+                "Ownership history",
                 owners,
                 index=default_index(owners, "First Owner"),
             )
         with right:
             seller_type = st.selectbox(
-                "Тип продавца",
+                "Seller type",
                 sellers,
                 index=default_index(sellers, "Individual"),
             )
-            mileage = st.number_input("Экономичность, kmpl", 1.0, 50.0, 19.0, 0.5)
-            engine = st.number_input("Объём двигателя, CC", 500, 5_000, 1_200, 50)
-            max_power = st.number_input("Максимальная мощность, bhp", 20.0, 500.0, 85.0, 5.0)
-            torque = st.number_input("Крутящий момент, Nm", 20.0, 1_000.0, 150.0, 10.0)
-            torque_rpm = st.number_input("Обороты максимального момента, rpm", 500, 8_000, 3_000, 100)
-            seats = st.selectbox("Количество мест", seat_options, index=default_index(list(map(str, seat_options)), "5"))
+            mileage = st.number_input("Fuel efficiency, kmpl", 1.0, 50.0, 19.0, 0.5)
+            engine = st.number_input("Engine displacement, CC", 500, 5_000, 1_200, 50)
+            max_power = st.number_input("Maximum power, bhp", 20.0, 500.0, 85.0, 5.0)
+            torque = st.number_input("Torque, Nm", 20.0, 1_000.0, 150.0, 10.0)
+            torque_rpm = st.number_input("Peak torque, rpm", 500, 8_000, 3_000, 100)
+            seats = st.selectbox("Seats", seat_options, index=default_index(list(map(str, seat_options)), "5"))
 
         submitted = st.form_submit_button(
-            "Рассчитать стоимость",
+            "Estimate price",
             type="primary",
             width="stretch",
         )
@@ -333,29 +333,29 @@ with single_tab:
         try:
             raw_prediction = predict_prices(model, input_frame)[0]
             prediction = max(raw_prediction, 0)
-            st.success(f"Оценочная стоимость: **{format_price(prediction)}**")
+            st.success(f"Estimated price: **{format_price(prediction)}**")
             if raw_prediction < 0:
                 st.warning(
-                    "Линейная модель вышла за допустимую область; в интерфейсе "
-                    "результат ограничен нулём."
+                    "The linear model predicted a value outside the valid price "
+                    "domain, so the displayed result was clipped to zero."
                 )
             st.caption(
-                "Это исследовательский прогноз для индийского рынка. Он не учитывает "
-                "состояние кузова, регион, комплектацию и текущую конъюнктуру."
+                "This is an experimental estimate for the Indian market. It does not "
+                "account for vehicle condition, region, trim, or current market dynamics."
             )
         except Exception as error:
-            st.error(f"Не удалось построить прогноз: {error}")
+            st.error(f"Could not generate a prediction: {error}")
 
 with batch_tab:
-    st.subheader("Прогноз для CSV-файла")
+    st.subheader("CSV batch prediction")
     st.write(
-        "Загрузите таблицу с характеристиками автомобилей. Если в ней есть "
-        "`selling_price`, приложение дополнительно рассчитает метрики качества."
+        "Upload a table of vehicle attributes. When `selling_price` is present, "
+        "the application also calculates evaluation metrics."
     )
     download_column, upload_column = st.columns([1, 2])
     with download_column:
         st.download_button(
-            "Скачать пример CSV",
+            "Download sample CSV",
             data=SAMPLE_DATA_PATH.read_bytes(),
             file_name="cars_test.csv",
             mime="text/csv",
@@ -363,13 +363,13 @@ with batch_tab:
         )
     with upload_column:
         batch_file = st.file_uploader(
-            "CSV для пакетной оценки",
+            "CSV file for batch prediction",
             type="csv",
             key="batch_file",
             label_visibility="collapsed",
         )
 
-    with st.expander("Ожидаемая схема данных"):
+    with st.expander("Expected data schema"):
         st.code(", ".join(REQUIRED_FEATURES), language="text")
 
     if batch_file is not None:
@@ -398,19 +398,19 @@ with batch_tab:
 
             st.dataframe(result, width="stretch", hide_index=True)
             st.download_button(
-                "Скачать прогнозы",
+                "Download predictions",
                 data=result.to_csv(index=False).encode("utf-8"),
                 file_name="car_price_predictions.csv",
                 mime="text/csv",
                 type="primary",
             )
         except Exception as error:
-            st.error(f"Не удалось обработать файл: {error}")
+            st.error(f"Could not process the file: {error}")
 
 with analysis_tab:
-    st.subheader("Быстрый EDA")
-    st.caption("Загрузите CSV, чтобы изучить распределения, пропуски и зависимости.")
-    analysis_file = st.file_uploader("CSV для анализа", type="csv", key="analysis_file")
+    st.subheader("Quick exploratory analysis")
+    st.caption("Upload a CSV file to inspect distributions, missing values, and relationships.")
+    analysis_file = st.file_uploader("CSV file for analysis", type="csv", key="analysis_file")
 
     if analysis_file is not None:
         try:
@@ -422,15 +422,15 @@ with analysis_tab:
             ]
             analysis = analysis.drop(columns=index_columns)
             stats = st.columns(4)
-            stats[0].metric("Строк", f"{len(analysis):,}")
-            stats[1].metric("Признаков", analysis.shape[1])
-            stats[2].metric("Пропусков", f"{int(analysis.isna().sum().sum()):,}")
-            stats[3].metric("Дубликатов", f"{int(analysis.duplicated().sum()):,}")
+            stats[0].metric("Rows", f"{len(analysis):,}")
+            stats[1].metric("Features", analysis.shape[1])
+            stats[2].metric("Missing values", f"{int(analysis.isna().sum().sum()):,}")
+            stats[3].metric("Duplicates", f"{int(analysis.duplicated().sum()):,}")
             st.dataframe(analysis.head(100), width="stretch", hide_index=True)
 
             numeric_columns = analysis.select_dtypes(include=np.number).columns.tolist()
             if numeric_columns:
-                selected_feature = st.selectbox("Распределение признака", numeric_columns)
+                selected_feature = st.selectbox("Feature distribution", numeric_columns)
                 histogram = px.histogram(
                     analysis,
                     x=selected_feature,
@@ -442,8 +442,8 @@ with analysis_tab:
                 histogram.update_layout(height=430, margin=dict(l=20, r=20, t=30, b=20))
                 st.plotly_chart(histogram, width="stretch")
 
-            if st.button("Рассчитать φk-корреляции", width="stretch"):
-                with st.spinner("Строим матрицу зависимостей…"):
+            if st.button("Calculate phi-k correlations", width="stretch"):
+                with st.spinner("Building the relationship matrix..."):
                     import phik  # noqa: F401 - registers the pandas accessor
 
                     correlation_data = analysis.drop(columns=["name"], errors="ignore").head(5_000)
@@ -461,13 +461,13 @@ with analysis_tab:
                     heatmap.update_layout(height=650, margin=dict(l=20, r=20, t=30, b=20))
                     st.plotly_chart(heatmap, width="stretch")
         except Exception as error:
-            st.error(f"Не удалось проанализировать файл: {error}")
+            st.error(f"Could not analyze the file: {error}")
 
 with interpretation_tab:
-    st.subheader("Что влияет на прогноз")
+    st.subheader("What drives the estimate")
     st.write(
-        "Перед Ridge Regression признаки стандартизируются, поэтому абсолютные "
-        "значения коэффициентов можно использовать для сравнительной интерпретации."
+        "Features are standardized before Ridge Regression, so coefficient "
+        "magnitudes can be compared for relative interpretation."
     )
 
     coefficients = pd.DataFrame(
@@ -478,7 +478,7 @@ with interpretation_tab:
     )
     coefficients["label"] = coefficients["feature"].map(feature_label)
     coefficients["absolute_coefficient"] = coefficients["coefficient"].abs()
-    top_n = st.slider("Сколько признаков показать", 8, len(coefficients), 15)
+    top_n = st.slider("Number of features to display", 8, len(coefficients), 15)
     top_coefficients = coefficients.nlargest(top_n, "absolute_coefficient").sort_values("coefficient")
 
     coefficient_chart = px.bar(
@@ -489,7 +489,7 @@ with interpretation_tab:
         color="coefficient",
         color_continuous_scale="RdBu",
         color_continuous_midpoint=0,
-        labels={"coefficient": "Коэффициент", "label": "Признак"},
+        labels={"coefficient": "Coefficient", "label": "Feature"},
         template="plotly_dark",
     )
     coefficient_chart.update_layout(
@@ -499,12 +499,12 @@ with interpretation_tab:
     )
     st.plotly_chart(coefficient_chart, width="stretch")
     st.caption(
-        "Знак показывает направление связи при прочих равных, но не доказывает "
-        "причинность. Mean target encoding закономерно делает среднюю цену модели "
-        "одним из наиболее сильных факторов."
+        "The sign indicates the direction of association, all else equal, but does "
+        "not establish causality. Mean target encoding naturally makes a vehicle "
+        "model's average price one of the strongest factors."
     )
 
 st.divider()
 st.caption(
-    "CarValue · scikit-learn + Streamlit · Цены и ошибки указаны в INR."
+    "CarValue · scikit-learn + Streamlit · Prices and errors are reported in INR."
 )

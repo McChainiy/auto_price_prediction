@@ -17,7 +17,7 @@ class StreamlitAppTest(unittest.TestCase):
 
         self.assertFalse(app.exception)
         self.assertEqual(len(app.tabs), 5)
-        self.assertEqual(app.tabs[0].label, "Оценить автомобиль")
+        self.assertEqual(app.tabs[0].label, "Estimate a car")
 
 
 if __name__ == "__main__":

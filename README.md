@@ -1,4 +1,4 @@
-# CarValue — прогноз стоимости автомобиля
+# CarValue - Used Car Price Prediction
 
 [![CI](https://github.com/McChainiy/auto_price_prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/McChainiy/auto_price_prediction/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
@@ -6,119 +6,143 @@
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.52-FF4B4B?logo=streamlit&logoColor=white)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2EA44F.svg)](LICENSE)
 
-**End-to-end ML-проект для оценки подержанных автомобилей на индийском рынке:** от исследования данных и feature engineering до сериализованного `scikit-learn Pipeline`, автоматических тестов и интерактивного веб-приложения.
+**An end-to-end machine learning project that estimates used-car prices on the
+Indian market:** from exploratory data analysis and feature engineering to a
+versioned `scikit-learn` pipeline, automated tests, and an interactive Streamlit
+application.
 
-> Цены и ошибки в проекте указаны в индийских рупиях (INR).
+> Prices and error metrics are reported in Indian rupees (INR).
 
-## Результат
+## Results at a Glance
 
-| Метрика | Значение на holdout-выборке |
+| Metric | Holdout result |
 |---|---:|
 | **R²** | **0.887** |
 | **MAE** | **127,522 INR** |
 | RMSE | 254,925 INR |
-| Размер тестовой выборки | 1,000 автомобилей |
+| Holdout size | 1,000 vehicles |
 
-Feature engineering поднял R² с **0.600 у baseline Linear Regression до 0.887** у финального пайплайна. Это больший прирост, чем дала одна только смена регуляризации: главной силой решения стала работа с представлением данных.
+Feature engineering improved R² from **0.600 for the baseline Linear Regression
+to 0.887 for the final pipeline**. The largest gain came from representing the
+data better, not simply switching estimators.
 
-Подробные сведения о назначении, качестве и ограничениях собраны в
+For intended use, evaluation details, and risks, see the
 [Model Card](MODEL_CARD.md).
 
-## Почему проект интересен
+## Why This Project Stands Out
 
-- **Полный sklearn Pipeline.** Сырые признаки, масштабирование и Ridge Regression объединены в один воспроизводимый объект: одинаковая обработка используется при обучении и инференсе.
-- **Парсинг реальных объявлений.** Кастомный `TransformerMixin` извлекает числа из строк вроде `19.7 kmpl`, `1248 CC`, `74 bhp` и `190 Nm at 2000 rpm`, включая перевод `kgm → Nm`.
-- **Feature engineering вместо “магии модели”.** Добавлены квадрат года, логарифм пробега, отношение мощности к объёму двигателя, оценка расхода топлива, страна бренда и средняя цена модели.
-- **Аккуратная работа с пропусками и категориями.** Медианная импутация дополняется missing-value флагом, OHE умеет обрабатывать неизвестные значения, а для незнакомой модели есть fallback к среднему target на train.
-- **Защита от data leakage.** Mean target encoding модели автомобиля строится только по обучающей выборке и хранится внутри fitted-трансформера.
-- **Интерпретируемость.** Коэффициенты Ridge визуализируются после стандартизации признаков, поэтому их можно сравнивать между собой.
-- **Продуктовый интерфейс.** Streamlit-приложение поддерживает одиночную оценку, пакетный прогноз из CSV, расчёт метрик, быстрый EDA, φk-корреляции и выгрузку результата.
-- **Engineering-обвязка.** Версии зависимостей зафиксированы, модель имеет машиночитаемые метаданные и SHA-256-проверку артефакта, а GitHub Actions запускает компиляцию и регрессионные тесты.
+- **A single reproducible sklearn pipeline.** Raw feature processing, scaling,
+  and Ridge Regression are packaged into one fitted artifact, keeping training
+  and inference behavior consistent.
+- **Parsing real-world listing data.** A custom `TransformerMixin` extracts
+  values from strings such as `19.7 kmpl`, `1248 CC`, `74 bhp`, and
+  `190 Nm at 2000 rpm`, including `kgm -> Nm` conversion.
+- **Purposeful feature engineering.** The model uses squared model year,
+  log-transformed distance driven, power-to-engine ratio, a fuel-use proxy,
+  manufacturer country, and model-level average price.
+- **Robust missing-value and category handling.** Median imputation is paired
+  with a missing-value flag; one-hot encoding supports unseen categories; and
+  unknown vehicle models fall back to the training-set target mean.
+- **Leakage-aware target encoding.** Model-level mean prices are learned only
+  from the training data and stored inside the fitted transformer.
+- **Interpretable predictions.** Standardized Ridge coefficients are exposed in
+  the application for direct comparison.
+- **A usable product interface.** The Streamlit app supports single predictions,
+  CSV batch inference, evaluation metrics, lightweight EDA, phi-k correlations,
+  coefficient analysis, and result export.
+- **Engineering safeguards.** Dependencies are pinned, model metadata is
+  versioned, the pickle artifact is verified with SHA-256 before loading, and
+  GitHub Actions runs compilation and regression tests.
 
-## Как устроено решение
+## Solution Architecture
 
 ```mermaid
 flowchart LR
-    A[Сырое объявление] --> B[Regex-парсинг]
-    B --> C[Импутация + missing flag]
+    A[Raw vehicle listing] --> B[Regex parsing]
+    B --> C[Imputation + missing flag]
     C --> D[Feature engineering]
     D --> E[OHE + target encoding]
     E --> F[StandardScaler]
     F --> G[Ridge Regression]
-    G --> H[Цена в INR]
+    G --> H[Price in INR]
 ```
 
-Финальный пайплайн превращает 12 сырых полей в 31 модельный признак:
+The final pipeline turns 12 raw input fields into 31 model features:
 
 ```text
-raw listing → MyTransormer → StandardScaler → Ridge(alpha=100) → prediction
+raw listing -> MyTransormer -> StandardScaler -> Ridge(alpha=100) -> prediction
 ```
 
-Название `MyTransormer` содержит историческую опечатку: оно намеренно сохранено для обратной совместимости с обученным pickle-артефактом. В приложении используется отдельный безопасный mapping legacy-класса при загрузке.
+`MyTransormer` intentionally keeps a historical spelling mistake for backward
+compatibility with the trained pickle artifact. A dedicated unpickler maps the
+legacy notebook class to the maintained implementation in `src/model.py`.
 
-## Эксперименты
+## Experiment Summary
 
-| Модель | R² | MAE, INR | Что изменилось |
+| Model | R² | MAE, INR | Main change |
 |---|---:|---:|---|
-| Linear Regression | 0.600 | 220,873 | Только числовые признаки |
-| Lasso | 0.600 | 220,872 | L1-регуляризация |
-| Ridge + OHE | 0.781 | 168,628 | Добавлены категориальные признаки |
+| Linear Regression | 0.600 | 220,873 | Numeric features only |
+| Lasso | 0.600 | 220,872 | L1 regularization |
+| Ridge + OHE | 0.781 | 168,628 | Added categorical features |
 | **Final Ridge Pipeline** | **0.887** | **127,522** | Feature engineering + scaling + Ridge |
 
-В исследовательском ноутбуке также реализованы и разобраны:
+The research notebook also covers:
 
-- ручной расчёт R² и adjusted R²;
-- собственная L0-регрессия;
-- GridSearchCV с 10-fold cross-validation для Lasso, ElasticNet и Ridge;
-- Pearson, Spearman, Kendall и φk-корреляции;
-- бизнес-метрика с разными штрафами за переоценку и недооценку;
-- анализ влияния выбросов и визуализация весов моделей.
+- manual R² and adjusted R² calculation;
+- a custom L0 regression implementation;
+- 10-fold `GridSearchCV` for Lasso, ElasticNet, and Ridge;
+- Pearson, Spearman, Kendall, and phi-k correlations;
+- an asymmetric business metric for overpricing and underpricing;
+- outlier analysis and model-weight visualization.
 
-Полный ход экспериментов находится в [Jupyter Notebook](AI_HW1_Regression_with_inference_pro_pt1.ipynb).
+The complete experiment log is available in the
+[Jupyter Notebook](AI_HW1_Regression_with_inference_pro_pt1.ipynb). The notebook
+retains the original Russian course prompts; all public-facing documentation and
+the application UI are provided in English.
 
-## Возможности приложения
+## Application Capabilities
 
-1. **Оценить один автомобиль** через форму с понятными единицами измерения.
-2. **Загрузить CSV** и получить прогноз для каждой строки.
-3. **Проверить качество** — при наличии `selling_price` автоматически считаются R², MAE и RMSE.
-4. **Исследовать данные** — распределения, пропуски, дубликаты и φk-корреляции.
-5. **Объяснить модель** — увидеть самые сильные положительные и отрицательные коэффициенты.
-6. **Скачать результат** в готовом CSV с прогнозами и абсолютной ошибкой.
+1. **Estimate one vehicle** through a form with explicit measurement units.
+2. **Upload a CSV file** and generate a prediction for every row.
+3. **Evaluate model quality** with R², MAE, and RMSE when `selling_price` is present.
+4. **Explore a dataset** through distributions, missing values, duplicates, and phi-k correlations.
+5. **Interpret the model** through its strongest positive and negative coefficients.
+6. **Export results** as a CSV file with predictions and absolute errors.
 
-## Стек
+## Technology Stack
 
-- **ML:** scikit-learn, NumPy, pandas
-- **Модель:** Ridge Regression, StandardScaler, OneHotEncoder, custom TransformerMixin
-- **Аналитика:** φk, Plotly; в исследовательском ноутбуке — seaborn, matplotlib, ydata-profiling
-- **Приложение:** Streamlit
-- **Quality:** unittest, GitHub Actions, versioned model metadata, SHA-256 integrity check
+- **Machine learning:** scikit-learn, NumPy, pandas
+- **Modeling:** Ridge Regression, StandardScaler, OneHotEncoder, custom TransformerMixin
+- **Analytics:** phi-k, Plotly; seaborn, matplotlib, and ydata-profiling in the notebook
+- **Application:** Streamlit
+- **Quality:** unittest, Streamlit AppTest, GitHub Actions, versioned metadata, SHA-256 verification
 
-## Структура репозитория
+## Repository Structure
 
 ```text
 .
-├── .github/workflows/ci.yml       # CI: compile + regression tests
-├── .streamlit/config.toml         # тема и настройки приложения
+├── .github/workflows/ci.yml       # Compilation and regression-test workflow
+├── .streamlit/config.toml         # Application theme and server settings
 ├── models/
-│   ├── metadata.json              # версия, схема и метрики модели
-│   └── ridge_new_features.pkl     # fitted sklearn Pipeline
+│   ├── metadata.json              # Model version, schema, metrics, and checksum
+│   └── ridge_new_features.pkl     # Fitted sklearn Pipeline
 ├── src/
-│   └── model.py                   # трансформер, загрузка и инференс
+│   └── model.py                   # Transformer, validation, loading, and inference
 ├── tests/
-│   ├── test_app.py                # headless smoke-тест Streamlit UI
-│   └── test_model.py              # численная регрессия и edge cases
-├── .python-version                # единая версия Python для tooling
-├── app.py                         # Streamlit UI
-├── MODEL_CARD.md                  # назначение, метрики и риски модели
+│   ├── test_app.py                # Headless Streamlit smoke test
+│   └── test_model.py              # Numerical regression and edge-case tests
+├── .python-version                # Shared Python version for local tooling
+├── app.py                         # Streamlit application
+├── MODEL_CARD.md                  # Intended use, evaluation, and model risks
 ├── LICENSE                        # MIT License
-├── test.csv                       # пример и holdout-выборка
-├── requirements.txt               # минимальные runtime-зависимости
-└── AI_HW1_Regression_...ipynb     # EDA, эксперименты и обучение
+├── test.csv                       # Example data and reproducible holdout set
+├── requirements.txt               # Pinned runtime dependencies
+└── AI_HW1_Regression_...ipynb     # EDA, experiments, and model training
 ```
 
-## Локальный запуск
+## Quick Start
 
-Требуется Python 3.12.
+Python 3.12 is required.
 
 ```bash
 git clone https://github.com/McChainiy/auto_price_prediction.git
@@ -131,49 +155,56 @@ python -m pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Модель уже лежит в `models/`, поэтому для запуска приложения повторное обучение не требуется.
+The fitted model is included in `models/`, so retraining is not required to run
+the application.
 
-Для публикации на Streamlit Community Cloud достаточно выбрать `app.py` как
-entrypoint и Python 3.12 в Advanced settings. Все Python-зависимости объявлены в
-корневом `requirements.txt`.
+For Streamlit Community Cloud, select `app.py` as the entry point and Python 3.12
+in Advanced settings. All Python dependencies are declared in the root
+`requirements.txt`.
 
-## Тесты
+## Tests
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-Тесты фиксируют контрольные прогнозы, воспроизводят опубликованные R²/MAE, проверяют схему входных данных, парсинг физических величин, неизвестного производителя и ограничение цены неотрицательной областью.
-Также проверяются соответствие модели метаданным и SHA-256, а встроенный
-`streamlit.testing` выполняет headless smoke-тест всего приложения.
+The suite locks down reference predictions and published metrics, validates the
+input schema and measurement parsing, checks unknown manufacturers and price
+clipping, verifies metadata and SHA-256 integrity, and starts the complete app
+through `streamlit.testing`.
 
-## Формат входного CSV
+## CSV Input Schema
 
-Обязательные поля:
+Required columns:
 
 ```text
 name, year, km_driven, fuel, seller_type, transmission, owner,
 mileage, engine, max_power, torque, seats
 ```
 
-Колонка `selling_price` необязательна. Если она присутствует, приложение использует её только для расчёта метрик. Готовый пример — [test.csv](test.csv).
+The `selling_price` column is optional. When present, it is used only to compute
+evaluation metrics. A ready-to-use example is provided in [test.csv](test.csv).
 
-## Ограничения
+## Limitations
 
-- Модель обучена на исторических данных индийского рынка и не должна напрямую переноситься на другие страны и валюты.
-- Она не видит состояние кузова, историю ДТП, регион, комплектацию и динамику рынка.
-- Линейная модель может выдавать отрицательные значения на объектах вне обучающего распределения; UI ограничивает такие прогнозы нулём, а исследовательские метрики рассчитаны по исходным значениям.
-- Pickle безопасно загружать только из доверенного источника. Приложение использует исключительно артефакт из этого репозитория и никогда не принимает модели от пользователя.
+- The model was trained on historical data from the Indian market and should not
+  be transferred directly to other countries or currencies.
+- It does not observe vehicle condition, accident history, region, trim level,
+  or current market dynamics.
+- A linear model may produce negative values for inputs far outside the training
+  distribution. The UI clips displayed predictions at zero, while published
+  research metrics use the original outputs.
+- Pickle files must only be loaded from trusted sources. The application loads
+  the repository-owned artifact and never accepts user-supplied models.
 
-## Данные
+## Data
 
-Исходные train/test-таблицы взяты из учебного набора [HSE MLDS](https://github.com/Murcha1990/MLDS_ML_2022/tree/main/Hometasks/HT1). В репозитории сохранена тестовая выборка для демонстрации и проверки воспроизводимости.
+The original train and test tables come from the educational
+[HSE MLDS dataset](https://github.com/Murcha1990/MLDS_ML_2022/tree/main/Hometasks/HT1).
+The holdout set is included for demonstration and reproducibility. Review the
+upstream dataset terms before reusing or redistributing the data.
 
-## Лицензия
+## License
 
-Код проекта распространяется по [MIT License](LICENSE). Условия использования
-исходного датасета необходимо проверять у его первоисточника.
-
----
-
-Если проект оказался полезен, можно поставить ⭐ — это помогает ему быть заметнее.
+The project code is released under the [MIT License](LICENSE). Dataset usage is
+subject to the terms of its original source.
