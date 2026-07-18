@@ -1,0 +1,42 @@
+{
+  "name": "car-price-ridge-pipeline",
+  "version": "1.0.0",
+  "model_type": "Ridge Regression",
+  "artifact": "ridge_new_features.pkl",
+  "artifact_sha256": "c751931812e1b6d891408502d86c2ac762816a5098be315fc8ef588fd3d793d0",
+  "framework": "scikit-learn",
+  "framework_version": "1.7.1",
+  "python_version": "3.12",
+  "target": "selling_price",
+  "currency": "INR",
+  "test_set": {
+    "rows": 1000,
+    "r2": 0.8869457591638247,
+    "mae": 127521.59103679073,
+    "mse": 64986805968.659515
+  },
+  "pipeline_steps": [
+    "custom feature transformer",
+    "standard scaler",
+    "ridge regression"
+  ],
+  "hyperparameters": {
+    "ridge_alpha": 100
+  },
+  "raw_features": [
+    "name",
+    "year",
+    "km_driven",
+    "fuel",
+    "seller_type",
+    "transmission",
+    "owner",
+    "mileage",
+    "engine",
+    "max_power",
+    "torque",
+    "seats"
+  ],
+  "engineered_feature_count": 31,
+  "dataset_source": "https://github.com/Murcha1990/MLDS_ML_2022/tree/main/Hometasks/HT1"
+}

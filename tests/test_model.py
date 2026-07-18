@@ -1,20 +1,45 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, r2_score
 
-from src.model import MyTransormer, load_pipeline, predict_prices, prepare_features
+from src.model import (
+    MODEL_PATH,
+    MyTransormer,
+    calculate_file_sha256,
+    load_model_metadata,
+    load_pipeline,
+    predict_prices,
+    prepare_features,
+)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class ModelPipelineTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.model = load_pipeline()
-        cls.data = pd.read_csv("test.csv")
+        cls.data = pd.read_csv(PROJECT_ROOT / "test.csv")
         cls.target = cls.data["selling_price"]
+
+    def test_model_metadata_matches_artifact(self) -> None:
+        metadata = load_model_metadata()
+
+        self.assertEqual(metadata["version"], "1.0.0")
+        self.assertEqual(metadata["artifact"], MODEL_PATH.name)
+        self.assertEqual(
+            metadata["artifact_sha256"],
+            calculate_file_sha256(MODEL_PATH),
+        )
+        self.assertEqual(
+            metadata["engineered_feature_count"],
+            len(self.model.named_steps["transformer"].feature_names_),
+        )
 
     def test_predictions_match_versioned_artifact(self) -> None:
         predictions = predict_prices(self.model, self.data)

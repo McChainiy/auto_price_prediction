@@ -1,27 +1,28 @@
-# CarValue AI — прогноз стоимости автомобиля
+# CarValue — прогноз стоимости автомобиля
 
-[![Live Demo](https://img.shields.io/badge/Live_demo-Streamlit-FF4B4B?logo=streamlit&logoColor=white)](https://autopricepredictiongit-hse.streamlit.app)
 [![CI](https://github.com/McChainiy/auto_price_prediction/actions/workflows/ci.yml/badge.svg)](https://github.com/McChainiy/auto_price_prediction/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
 ![scikit-learn](https://img.shields.io/badge/scikit--learn-1.7.1-F7931E?logo=scikitlearn&logoColor=white)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.52-FF4B4B?logo=streamlit&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2EA44F.svg)](LICENSE)
 
 **End-to-end ML-проект для оценки подержанных автомобилей на индийском рынке:** от исследования данных и feature engineering до сериализованного `scikit-learn Pipeline`, автоматических тестов и интерактивного веб-приложения.
 
-### [Открыть live demo →](https://autopricepredictiongit-hse.streamlit.app)
-
-> Цены и ошибки в проекте указаны в индийских рупиях — INR (`₹`).
+> Цены и ошибки в проекте указаны в индийских рупиях (INR).
 
 ## Результат
 
 | Метрика | Значение на holdout-выборке |
 |---|---:|
 | **R²** | **0.887** |
-| **MAE** | **₹127,522** |
-| RMSE | ₹254,925 |
+| **MAE** | **127,522 INR** |
+| RMSE | 254,925 INR |
 | Размер тестовой выборки | 1,000 автомобилей |
 
 Feature engineering поднял R² с **0.600 у baseline Linear Regression до 0.887** у финального пайплайна. Это больший прирост, чем дала одна только смена регуляризации: главной силой решения стала работа с представлением данных.
+
+Подробные сведения о назначении, качестве и ограничениях собраны в
+[Model Card](MODEL_CARD.md).
 
 ## Почему проект интересен
 
@@ -32,7 +33,7 @@ Feature engineering поднял R² с **0.600 у baseline Linear Regression д
 - **Защита от data leakage.** Mean target encoding модели автомобиля строится только по обучающей выборке и хранится внутри fitted-трансформера.
 - **Интерпретируемость.** Коэффициенты Ridge визуализируются после стандартизации признаков, поэтому их можно сравнивать между собой.
 - **Продуктовый интерфейс.** Streamlit-приложение поддерживает одиночную оценку, пакетный прогноз из CSV, расчёт метрик, быстрый EDA, φk-корреляции и выгрузку результата.
-- **Engineering-обвязка.** Версии зависимостей зафиксированы, метаданные модели версионируются, а GitHub Actions проверяет компиляцию и регрессионные тесты.
+- **Engineering-обвязка.** Версии зависимостей зафиксированы, модель имеет машиночитаемые метаданные и SHA-256-проверку артефакта, а GitHub Actions запускает компиляцию и регрессионные тесты.
 
 ## Как устроено решение
 
@@ -90,7 +91,7 @@ raw listing → MyTransormer → StandardScaler → Ridge(alpha=100) → predict
 - **Модель:** Ridge Regression, StandardScaler, OneHotEncoder, custom TransformerMixin
 - **Аналитика:** φk, Plotly; в исследовательском ноутбуке — seaborn, matplotlib, ydata-profiling
 - **Приложение:** Streamlit
-- **Quality:** unittest, GitHub Actions
+- **Quality:** unittest, GitHub Actions, versioned model metadata, SHA-256 integrity check
 
 ## Структура репозитория
 
@@ -104,8 +105,12 @@ raw listing → MyTransormer → StandardScaler → Ridge(alpha=100) → predict
 ├── src/
 │   └── model.py                   # трансформер, загрузка и инференс
 ├── tests/
+│   ├── test_app.py                # headless smoke-тест Streamlit UI
 │   └── test_model.py              # численная регрессия и edge cases
+├── .python-version                # единая версия Python для tooling
 ├── app.py                         # Streamlit UI
+├── MODEL_CARD.md                  # назначение, метрики и риски модели
+├── LICENSE                        # MIT License
 ├── test.csv                       # пример и holdout-выборка
 ├── requirements.txt               # минимальные runtime-зависимости
 └── AI_HW1_Regression_...ipynb     # EDA, эксперименты и обучение
@@ -119,7 +124,7 @@ raw listing → MyTransormer → StandardScaler → Ridge(alpha=100) → predict
 git clone https://github.com/McChainiy/auto_price_prediction.git
 cd auto_price_prediction
 
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 python -m pip install -r requirements.txt
 
@@ -128,6 +133,10 @@ streamlit run app.py
 
 Модель уже лежит в `models/`, поэтому для запуска приложения повторное обучение не требуется.
 
+Для публикации на Streamlit Community Cloud достаточно выбрать `app.py` как
+entrypoint и Python 3.12 в Advanced settings. Все Python-зависимости объявлены в
+корневом `requirements.txt`.
+
 ## Тесты
 
 ```bash
@@ -135,6 +144,8 @@ python -m unittest discover -s tests -v
 ```
 
 Тесты фиксируют контрольные прогнозы, воспроизводят опубликованные R²/MAE, проверяют схему входных данных, парсинг физических величин, неизвестного производителя и ограничение цены неотрицательной областью.
+Также проверяются соответствие модели метаданным и SHA-256, а встроенный
+`streamlit.testing` выполняет headless smoke-тест всего приложения.
 
 ## Формат входного CSV
 
@@ -157,6 +168,11 @@ mileage, engine, max_power, torque, seats
 ## Данные
 
 Исходные train/test-таблицы взяты из учебного набора [HSE MLDS](https://github.com/Murcha1990/MLDS_ML_2022/tree/main/Hometasks/HT1). В репозитории сохранена тестовая выборка для демонстрации и проверки воспроизводимости.
+
+## Лицензия
+
+Код проекта распространяется по [MIT License](LICENSE). Условия использования
+исходного датасета необходимо проверять у его первоисточника.
 
 ---
 

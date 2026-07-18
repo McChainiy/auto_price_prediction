@@ -11,6 +11,8 @@ files can execute arbitrary code and must never be accepted from app users.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import pickle
 import re
 from pathlib import Path
@@ -23,6 +25,7 @@ from sklearn.preprocessing import OneHotEncoder
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = PROJECT_ROOT / "models" / "ridge_new_features.pkl"
+MODEL_METADATA_PATH = PROJECT_ROOT / "models" / "metadata.json"
 
 REQUIRED_FEATURES = (
     "name",
@@ -247,12 +250,64 @@ def _load(file: BinaryIO):
     return TrustedModelUnpickler(file).load()
 
 
+def load_model_metadata(
+    metadata_path: str | Path = MODEL_METADATA_PATH,
+) -> dict[str, object]:
+    """Load the repository-owned model card metadata."""
+
+    path = Path(metadata_path)
+    if not path.is_file():
+        raise FileNotFoundError(f"Model metadata not found: {path}")
+    with path.open(encoding="utf-8") as metadata_file:
+        metadata = json.load(metadata_file)
+    if not isinstance(metadata, dict):
+        raise ValueError(f"Model metadata must be a JSON object: {path}")
+    return metadata
+
+
+def calculate_file_sha256(path: str | Path) -> str:
+    """Calculate a file checksum without loading the whole artifact in memory."""
+
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as artifact_file:
+        for chunk in iter(lambda: artifact_file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_model_artifact(
+    model_path: str | Path = MODEL_PATH,
+    metadata_path: str | Path = MODEL_METADATA_PATH,
+) -> None:
+    """Reject a missing or accidentally modified repository model artifact."""
+
+    path = Path(model_path)
+    metadata = load_model_metadata(metadata_path)
+    expected_name = metadata.get("artifact")
+    expected_checksum = metadata.get("artifact_sha256")
+
+    if expected_name != path.name:
+        raise ValueError(
+            f"Model metadata references {expected_name!r}, not {path.name!r}"
+        )
+    if not isinstance(expected_checksum, str) or len(expected_checksum) != 64:
+        raise ValueError("Model metadata contains an invalid SHA-256 checksum")
+
+    actual_checksum = calculate_file_sha256(path)
+    if actual_checksum != expected_checksum:
+        raise ValueError(
+            "Model artifact checksum mismatch; the file may be damaged or modified"
+        )
+
+
 def load_pipeline(model_path: str | Path = MODEL_PATH):
-    """Load the trusted, repository-owned sklearn pipeline."""
+    """Verify and load the trusted, repository-owned sklearn pipeline."""
 
     path = Path(model_path)
     if not path.is_file():
         raise FileNotFoundError(f"Model artifact not found: {path}")
+    if path.resolve() == MODEL_PATH.resolve():
+        verify_model_artifact(path)
     with path.open("rb") as model_file:
         return _load(model_file)
 

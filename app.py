@@ -10,7 +10,13 @@ import plotly.express as px
 import streamlit as st
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
-from src.model import REQUIRED_FEATURES, load_pipeline, predict_prices, prepare_features
+from src.model import (
+    REQUIRED_FEATURES,
+    load_model_metadata,
+    load_pipeline,
+    predict_prices,
+    prepare_features,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 SAMPLE_DATA_PATH = PROJECT_ROOT / "test.csv"
@@ -33,54 +39,70 @@ FEATURE_LABELS = {
 
 
 st.set_page_config(
-    page_title="CarValue AI · Оценка автомобиля",
+    page_title="CarValue · Оценка автомобиля",
     page_icon="🚘",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 st.markdown(
     """
     <style>
         .block-container {padding-top: 2rem; padding-bottom: 3rem; max-width: 1280px;}
-        [data-testid="stMetric"] {
-            background: linear-gradient(145deg, rgba(26, 35, 50, .76), rgba(16, 23, 34, .76));
-            border: 1px solid rgba(124, 144, 171, .22);
-            border-radius: 16px;
-            padding: 1rem 1.1rem;
+        .app-header {
+            border-bottom: 1px solid #2b3038;
+            padding: .4rem 0 1.25rem;
+            margin-bottom: 1.25rem;
         }
-        .hero {
-            padding: 2rem 2.2rem;
-            border: 1px solid rgba(62, 207, 142, .28);
-            border-radius: 22px;
-            background:
-                radial-gradient(circle at 88% 20%, rgba(62, 207, 142, .19), transparent 28%),
-                linear-gradient(135deg, rgba(18, 29, 43, .98), rgba(12, 18, 28, .94));
-            margin-bottom: 1.4rem;
+        .app-header h1 {font-size: 2rem; margin: 0 0 .45rem; line-height: 1.15;}
+        .app-header p {color: #b6bbc4; max-width: 780px; margin: 0;}
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .75rem;
+            margin-bottom: 1rem;
         }
-        .hero-kicker {color: #3ecf8e; font-weight: 700; letter-spacing: .12em; font-size: .78rem;}
-        .hero h1 {font-size: clamp(2.1rem, 5vw, 4rem); margin: .35rem 0 .65rem; line-height: 1.04;}
-        .hero p {font-size: 1.08rem; color: #b8c3d1; max-width: 760px; margin-bottom: 0;}
+        .metric-item {
+            background: #171a1f;
+            border: 1px solid #2b3038;
+            border-radius: 6px;
+            min-height: 92px;
+            padding: .85rem 1rem;
+        }
+        .metric-label {color: #b6bbc4; font-size: .78rem; font-weight: 600;}
+        .metric-value {font-size: 1.55rem; line-height: 1.2; margin-top: .3rem;}
+        .metric-note {color: #42d392; font-size: .76rem; margin-top: .25rem;}
         .feature-card {
-            border: 1px solid rgba(124, 144, 171, .18);
-            border-radius: 16px;
+            border: 1px solid #2b3038;
+            border-radius: 6px;
             padding: 1rem 1.1rem;
             min-height: 128px;
-            background: rgba(21, 29, 41, .48);
+            background: #171a1f;
         }
         .feature-card h4 {margin: .1rem 0 .45rem;}
-        .feature-card p {color: #aeb9c8; font-size: .92rem; margin: 0;}
-        .eyebrow {color: #3ecf8e; font-size: .82rem; font-weight: 700; text-transform: uppercase;}
-        div.stButton > button, div.stDownloadButton > button {border-radius: 10px;}
+        .feature-card p {color: #b6bbc4; font-size: .92rem; margin: 0;}
+        .eyebrow {color: #42d392; font-size: .82rem; font-weight: 700; text-transform: uppercase;}
+        div.stButton > button, div.stDownloadButton > button {border-radius: 6px;}
+        @media (max-width: 640px) {
+            .block-container {padding-top: 1rem;}
+            .metric-grid {grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .55rem;}
+            .metric-item {min-height: 88px; padding: .7rem .8rem;}
+            .metric-value {font-size: 1.35rem;}
+        }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-@st.cache_resource(show_spinner="Загружаем ML-пайплайн…")
+@st.cache_resource(show_spinner="Загружаем модель…")
 def get_model():
     return load_pipeline()
+
+
+@st.cache_data
+def get_model_metadata() -> dict[str, object]:
+    return load_model_metadata()
 
 
 @st.cache_data
@@ -88,8 +110,8 @@ def read_csv(uploaded_file) -> pd.DataFrame:
     return pd.read_csv(uploaded_file)
 
 
-def format_inr(value: float) -> str:
-    return f"₹{max(float(value), 0):,.0f}"
+def format_price(value: float) -> str:
+    return f"{max(float(value), 0):,.0f} INR"
 
 
 def options_for(transformer, column: str) -> list[str]:
@@ -118,60 +140,83 @@ def feature_label(name: str) -> str:
 
 try:
     model = get_model()
+    model_metadata = get_model_metadata()
+    test_metrics = model_metadata["test_set"]
+    model_version = model_metadata["version"]
+    feature_count = model_metadata["engineered_feature_count"]
 except Exception as error:
-    st.error("Не удалось загрузить модель. Проверьте артефакт и версии зависимостей.")
+    st.error("Не удалось проверить и загрузить модель или её метаданные.")
     st.exception(error)
     st.stop()
 
 transformer = model.named_steps["transformer"]
 
 with st.sidebar:
-    st.markdown("### CarValue AI")
-    st.caption("End-to-end ML-проект для оценки подержанных автомобилей")
+    st.markdown("### CarValue")
+    st.caption("Оценка стоимости подержанных автомобилей")
     st.divider()
     st.markdown("**Модель**")
-    st.caption("Ridge Regression · 31 признак")
-    st.caption("Целевая валюта · INR (₹)")
-    st.caption("Тестовый R² · 0.887")
+    st.caption(f"Ridge Regression · v{model_version}")
+    st.caption(f"Признаков после обработки · {feature_count}")
+    st.caption("Целевая валюта · INR")
+    st.caption(f"Тестовый R² · {test_metrics['r2']:.3f}")
     st.divider()
     st.link_button(
         "Открыть репозиторий ↗",
         "https://github.com/McChainiy/auto_price_prediction",
-        use_container_width=True,
+        width="stretch",
     )
     st.caption("Демо предназначено для исследования модели, а не для финансовой оценки.")
 
 st.markdown(
     """
-    <section class="hero">
-        <div class="hero-kicker">MACHINE LEARNING · STREAMLIT</div>
-        <h1>Оценка автомобиля<br>за несколько секунд</h1>
+    <header class="app-header">
+        <h1>CarValue</h1>
         <p>
-            Интерактивный сервис прогнозирует стоимость подержанного автомобиля
-            на индийском рынке и показывает, как признаки влияют на решение модели.
+            Оценка стоимости подержанных автомобилей на индийском рынке с объяснением
+            факторов прогноза и поддержкой пакетной обработки.
         </p>
+    </header>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    f"""
+    <section class="metric-grid" aria-label="Метрики модели">
+        <div class="metric-item">
+            <div class="metric-label">R² на тесте</div>
+            <div class="metric-value">{test_metrics['r2']:.3f}</div>
+            <div class="metric-note">+0.287 к baseline</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">MAE</div>
+            <div class="metric-value">{format_price(test_metrics['mae'])}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Признаков после обработки</div>
+            <div class="metric-value">{feature_count}</div>
+        </div>
+        <div class="metric-item">
+            <div class="metric-label">Holdout-выборка</div>
+            <div class="metric-value">{test_metrics['rows']:,}</div>
+        </div>
     </section>
     """,
     unsafe_allow_html=True,
 )
 
-metric_columns = st.columns(4)
-metric_columns[0].metric("R² на тесте", "0.887", "+0.287 к baseline")
-metric_columns[1].metric("Средняя ошибка", "₹127.5K", "MAE")
-metric_columns[2].metric("Признаков", "31", "после обработки")
-metric_columns[3].metric("Тестовых объектов", "1,000", "holdout")
-
-tabs = st.tabs(
+single_tab, batch_tab, analysis_tab, interpretation_tab, overview_tab = st.tabs(
     [
-        "Обзор",
         "Оценить автомобиль",
         "Пакетный прогноз",
         "Анализ данных",
         "Интерпретация",
+        "О проекте",
     ]
 )
 
-with tabs[0]:
+with overview_tab:
     st.subheader("От сырой строки объявления до прогноза")
     st.write(
         "Модель принимает характеристики в том же виде, в котором они встречаются "
@@ -215,7 +260,7 @@ with tabs[0]:
         """
     )
 
-with tabs[1]:
+with single_tab:
     st.subheader("Параметры автомобиля")
     st.caption("Диапазоны формы ориентированы на данные, на которых обучалась модель.")
 
@@ -263,7 +308,7 @@ with tabs[1]:
         submitted = st.form_submit_button(
             "Рассчитать стоимость",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         )
 
     if submitted:
@@ -288,7 +333,7 @@ with tabs[1]:
         try:
             raw_prediction = predict_prices(model, input_frame)[0]
             prediction = max(raw_prediction, 0)
-            st.success(f"Оценочная стоимость: **{format_inr(prediction)}**")
+            st.success(f"Оценочная стоимость: **{format_price(prediction)}**")
             if raw_prediction < 0:
                 st.warning(
                     "Линейная модель вышла за допустимую область; в интерфейсе "
@@ -301,7 +346,7 @@ with tabs[1]:
         except Exception as error:
             st.error(f"Не удалось построить прогноз: {error}")
 
-with tabs[2]:
+with batch_tab:
     st.subheader("Прогноз для CSV-файла")
     st.write(
         "Загрузите таблицу с характеристиками автомобилей. Если в ней есть "
@@ -314,7 +359,7 @@ with tabs[2]:
             data=SAMPLE_DATA_PATH.read_bytes(),
             file_name="cars_test.csv",
             mime="text/csv",
-            use_container_width=True,
+            width="stretch",
         )
     with upload_column:
         batch_file = st.file_uploader(
@@ -343,15 +388,15 @@ with tabs[2]:
                 metric_row[0].metric("R²", f"{r2_score(target, raw_predictions):.3f}")
                 metric_row[1].metric(
                     "MAE",
-                    format_inr(mean_absolute_error(target, raw_predictions)),
+                    format_price(mean_absolute_error(target, raw_predictions)),
                 )
                 metric_row[2].metric(
                     "RMSE",
-                    format_inr(mean_squared_error(target, raw_predictions) ** 0.5),
+                    format_price(mean_squared_error(target, raw_predictions) ** 0.5),
                 )
                 result["absolute_error_inr"] = np.abs(target - raw_predictions).round().astype(int)
 
-            st.dataframe(result, use_container_width=True, hide_index=True)
+            st.dataframe(result, width="stretch", hide_index=True)
             st.download_button(
                 "Скачать прогнозы",
                 data=result.to_csv(index=False).encode("utf-8"),
@@ -362,7 +407,7 @@ with tabs[2]:
         except Exception as error:
             st.error(f"Не удалось обработать файл: {error}")
 
-with tabs[3]:
+with analysis_tab:
     st.subheader("Быстрый EDA")
     st.caption("Загрузите CSV, чтобы изучить распределения, пропуски и зависимости.")
     analysis_file = st.file_uploader("CSV для анализа", type="csv", key="analysis_file")
@@ -381,7 +426,7 @@ with tabs[3]:
             stats[1].metric("Признаков", analysis.shape[1])
             stats[2].metric("Пропусков", f"{int(analysis.isna().sum().sum()):,}")
             stats[3].metric("Дубликатов", f"{int(analysis.duplicated().sum()):,}")
-            st.dataframe(analysis.head(100), use_container_width=True, hide_index=True)
+            st.dataframe(analysis.head(100), width="stretch", hide_index=True)
 
             numeric_columns = analysis.select_dtypes(include=np.number).columns.tolist()
             if numeric_columns:
@@ -395,9 +440,9 @@ with tabs[3]:
                     template="plotly_dark",
                 )
                 histogram.update_layout(height=430, margin=dict(l=20, r=20, t=30, b=20))
-                st.plotly_chart(histogram, use_container_width=True)
+                st.plotly_chart(histogram, width="stretch")
 
-            if st.button("Рассчитать φk-корреляции", use_container_width=True):
+            if st.button("Рассчитать φk-корреляции", width="stretch"):
                 with st.spinner("Строим матрицу зависимостей…"):
                     import phik  # noqa: F401 - registers the pandas accessor
 
@@ -414,11 +459,11 @@ with tabs[3]:
                         template="plotly_dark",
                     )
                     heatmap.update_layout(height=650, margin=dict(l=20, r=20, t=30, b=20))
-                    st.plotly_chart(heatmap, use_container_width=True)
+                    st.plotly_chart(heatmap, width="stretch")
         except Exception as error:
             st.error(f"Не удалось проанализировать файл: {error}")
 
-with tabs[4]:
+with interpretation_tab:
     st.subheader("Что влияет на прогноз")
     st.write(
         "Перед Ridge Regression признаки стандартизируются, поэтому абсолютные "
@@ -452,7 +497,7 @@ with tabs[4]:
         coloraxis_showscale=False,
         margin=dict(l=20, r=20, t=20, b=20),
     )
-    st.plotly_chart(coefficient_chart, use_container_width=True)
+    st.plotly_chart(coefficient_chart, width="stretch")
     st.caption(
         "Знак показывает направление связи при прочих равных, но не доказывает "
         "причинность. Mean target encoding закономерно делает среднюю цену модели "
@@ -461,5 +506,5 @@ with tabs[4]:
 
 st.divider()
 st.caption(
-    "CarValue AI · scikit-learn + Streamlit · Цены и ошибки указаны в индийских рупиях (INR)."
+    "CarValue · scikit-learn + Streamlit · Цены и ошибки указаны в INR."
 )
