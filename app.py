@@ -50,12 +50,17 @@ st.markdown(
     <style>
         .block-container {padding-top: 2rem; padding-bottom: 3rem; max-width: 1280px;}
         .app-header {
-            border-bottom: 1px solid #2b3038;
+            border-bottom: 1px solid #E2E7EA;
             padding: .4rem 0 1.25rem;
             margin-bottom: 1.25rem;
         }
-        .app-header h1 {font-size: 2rem; margin: 0 0 .45rem; line-height: 1.15;}
-        .app-header p {color: #b6bbc4; max-width: 780px; margin: 0;}
+        .app-header h1 {
+            color: #111827;
+            font-size: 2rem;
+            margin: 0 0 .45rem;
+            line-height: 1.15;
+        }
+        .app-header p {color: #4B5563; max-width: 780px; margin: 0;}
         .metric-grid {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -63,25 +68,31 @@ st.markdown(
             margin-bottom: 1rem;
         }
         .metric-item {
-            background: #171a1f;
-            border: 1px solid #2b3038;
+            background: #FFFFFF;
+            border: 1px solid #DCE2E6;
             border-radius: 6px;
             min-height: 92px;
             padding: .85rem 1rem;
         }
-        .metric-label {color: #b6bbc4; font-size: .78rem; font-weight: 600;}
-        .metric-value {font-size: 1.55rem; line-height: 1.2; margin-top: .3rem;}
-        .metric-note {color: #42d392; font-size: .76rem; margin-top: .25rem;}
+        .metric-label {color: #4B5563; font-size: .78rem; font-weight: 600;}
+        .metric-value {
+            color: #111827;
+            font-size: 1.55rem;
+            font-weight: 600;
+            line-height: 1.2;
+            margin-top: .3rem;
+        }
+        .metric-note {color: #047857; font-size: .76rem; margin-top: .25rem;}
         .feature-card {
-            border: 1px solid #2b3038;
+            border: 1px solid #DCE2E6;
             border-radius: 6px;
             padding: 1rem 1.1rem;
             min-height: 128px;
-            background: #171a1f;
+            background: #FAFBFC;
         }
         .feature-card h4 {margin: .1rem 0 .45rem;}
-        .feature-card p {color: #b6bbc4; font-size: .92rem; margin: 0;}
-        .eyebrow {color: #42d392; font-size: .82rem; font-weight: 700; text-transform: uppercase;}
+        .feature-card p {color: #4B5563; font-size: .92rem; margin: 0;}
+        .eyebrow {color: #0F766E; font-size: .82rem; font-weight: 700; text-transform: uppercase;}
         div.stButton > button, div.stDownloadButton > button {border-radius: 6px;}
         @media (max-width: 640px) {
             .block-container {padding-top: 1rem;}
@@ -436,8 +447,8 @@ with analysis_tab:
                     x=selected_feature,
                     nbins=40,
                     marginal="box",
-                    color_discrete_sequence=["#3ecf8e"],
-                    template="plotly_dark",
+                    color_discrete_sequence=["#0F766E"],
+                    template="plotly_white",
                 )
                 histogram.update_layout(height=430, margin=dict(l=20, r=20, t=30, b=20))
                 st.plotly_chart(histogram, width="stretch")
@@ -456,7 +467,7 @@ with analysis_tab:
                         zmax=1,
                         text_auto=".2f",
                         aspect="auto",
-                        template="plotly_dark",
+                        template="plotly_white",
                     )
                     heatmap.update_layout(height=650, margin=dict(l=20, r=20, t=30, b=20))
                     st.plotly_chart(heatmap, width="stretch")
@@ -490,7 +501,7 @@ with interpretation_tab:
         color_continuous_scale="RdBu",
         color_continuous_midpoint=0,
         labels={"coefficient": "Coefficient", "label": "Feature"},
-        template="plotly_dark",
+        template="plotly_white",
     )
     coefficient_chart.update_layout(
         height=max(480, top_n * 34),

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -9,6 +10,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
 class StreamlitAppTest(unittest.TestCase):
+    def test_light_theme_is_configured(self) -> None:
+        with (PROJECT_ROOT / ".streamlit" / "config.toml").open("rb") as config_file:
+            theme = tomllib.load(config_file)["theme"]
+
+        self.assertEqual(theme["base"], "light")
+        self.assertEqual(theme["backgroundColor"], "#FFFFFF")
+        self.assertEqual(theme["textColor"], "#172033")
+
     def test_app_starts_with_primary_workflow_first(self) -> None:
         app = AppTest.from_file(
             PROJECT_ROOT / "app.py",
